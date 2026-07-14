@@ -92,7 +92,7 @@
 <body>
 
     <div class="card">
-        <h2>QRIS Static Enhancer - By AstraPay</h2>
+        <h2>QRIS Studio Pro</h2>
 
         <div class="input-group">
             <label for="qrisInput">1. Upload Original QRIS Image</label>
@@ -136,6 +136,25 @@
                     <option value="gradImperial">Imperial Velvet Gradient (Rich Violet to Dark Plum)</option>
                     <option value="gradTerracotta">Terracotta Clay Gradient (Rust to Autumn Charcoal)</option>
                     <option value="gradTitanium">Titanium Obsidian Gradient (Deep Carbon Textures)</option>
+                </optgroup>
+                <optgroup label="🖼️ QR Art — Styled Modules (scannable)">
+                    <option value="artAurora">Aurora Bloom (Teal→Violet)</option>
+                    <option value="artSakura">Sakura (Rounded Pink Blossom)</option>
+                    <option value="artEmerald">Emerald Weave (Connected Green)</option>
+                    <option value="artEmber">Sunset Ember (Orange→Red)</option>
+                    <option value="artInk">Ink Blossom (Mono Connected)</option>
+                    <option value="artOcean">Ocean Pearl (Sky→Indigo)</option>
+                    <option value="artNeon">Neon Circuit (Cyan→Magenta)</option>
+                    <option value="artCyberLime">Cyber Lime (Connected Lime→Teal)</option>
+                    <option value="artNebula">Royal Nebula (Violet→Fuchsia)</option>
+                    <option value="artMoltenGold">Molten Gold (Amber)</option>
+                </optgroup>
+                <optgroup label="🐾 Animal QR (scannable)">
+                    <option value="artCat">Kitty Cat (Orange)</option>
+                    <option value="artBunny">Bunny (Rose)</option>
+                    <option value="artBear">Teddy Bear (Brown)</option>
+                    <option value="artFox">Foxy (Orange-Red)</option>
+                    <option value="artChick">Chick (Amber)</option>
                 </optgroup>
             </select>
         </div>
@@ -234,30 +253,35 @@
         return core + getCRC16(core);
     }
 
-    // ---------- Real QR encoder -> crisp black/white canvas with quiet zone ----------
-    function makeQrCanvas(text) {
-        // ECC level 'H' (30% recovery) so the center logo doesn't break scanning.
+    // ---------- Real QR encoder (full ECC level 'H', 30% recovery) ----------
+    const QR_MARGIN = 4; // required quiet zone (in modules)
+
+    function makeQr(text) {
         const qr = qrcode(0, 'H');   // 0 = auto-select the smallest fitting version
         qr.addData(text);
         qr.make();
+        return qr;
+    }
+    function qrCell(count, target) {
+        return Math.max(4, Math.round(target / (count + QR_MARGIN * 2)));
+    }
 
+    // Classic path: render the module matrix as a crisp black/white canvas.
+    function qrToBWCanvas(qr) {
         const count = qr.getModuleCount();
-        const margin = 4;                       // required quiet zone (in modules)
-        const cell = Math.max(4, Math.round(800 / (count + margin * 2)));
-        const dim = (count + margin * 2) * cell;
-
+        const cell = qrCell(count, 800);
+        const dim = (count + QR_MARGIN * 2) * cell;
         const canvas = document.createElement('canvas');
         canvas.width = dim;
         canvas.height = dim;
         const ctx = canvas.getContext('2d');
-
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, dim, dim);
         ctx.fillStyle = '#000000';
         for (let r = 0; r < count; r++) {
             for (let c = 0; c < count; c++) {
                 if (qr.isDark(r, c)) {
-                    ctx.fillRect((c + margin) * cell, (r + margin) * cell, cell, cell);
+                    ctx.fillRect((c + QR_MARGIN) * cell, (r + QR_MARGIN) * cell, cell, cell);
                 }
             }
         }
@@ -289,6 +313,203 @@
         gradTerracotta: { isGrad:true, bgStops:['#451a03','#7c2d12'], qrDark:'#ffedd5', textBg:'#2c1001', textColor:'#fed7aa' },
         gradTitanium:   { isGrad:true, bgStops:['#171717','#262626'], qrDark:'#f5f5f5', textBg:'#0a0a0a', textColor:'#e5e5e5' }
     };
+
+    /* ---------- QR ART themes ----------
+       These keep the FULL error-correction QR intact (100% scannable) and only
+       restyle how modules are painted: shape (dot / rounded / connected),
+       gradient fills, and custom finder "eyes". Every palette below was
+       round-trip decode-tested. Fields:
+         bg      : background        (string, or [c1,c2] diagonal gradient)
+         shape   : 'dot' | 'rounded' | 'connected'
+         mod     : module fill       (string, or [c1,c2] gradient)
+         eye     : finder color (contrasts bg; module luminance)
+         logoBg  : backing behind the center logo
+         textBg / textColor : amount banner
+    */
+    const ART_STYLES = {
+        // All art themes use LIGHT backgrounds with dark, vivid modules.
+        // (Inverted/dark-background codes fail ZXing-family scanners, and the
+        // 'dot' shape is borderline on strict decoders -> we use rounded/connected.)
+        artAurora:   { art:true, bg:'#ffffff', shape:'rounded',   mod:['#0e7490','#7c3aed'], eye:'#0f172a', logoBg:'#ffffff', textBg:'#0f172a', textColor:'#67e8f9' },
+        artSakura:   { art:true, bg:'#fff1f5', shape:'rounded',   mod:['#db2777','#e11d48'], eye:'#831843', logoBg:'#fff1f5', textBg:'#831843', textColor:'#fbcfe8' },
+        artEmerald:  { art:true, bg:'#ecfdf5', shape:'connected', mod:['#047857','#15803d'], eye:'#064e3b', logoBg:'#ecfdf5', textBg:'#064e3b', textColor:'#6ee7b7' },
+        artEmber:    { art:true, bg:'#fffbeb', shape:'rounded',   mod:['#ea580c','#dc2626'], eye:'#7c2d12', logoBg:'#fffbeb', textBg:'#7c2d12', textColor:'#fed7aa' },
+        artInk:      { art:true, bg:'#ffffff', shape:'connected', mod:'#0f172a',             eye:'#0f172a', logoBg:'#ffffff', textBg:'#0f172a', textColor:'#f8fafc' },
+        artOcean:    { art:true, bg:'#eff6ff', shape:'rounded',   mod:['#0284c7','#4338ca'], eye:'#1e293b', logoBg:'#eff6ff', textBg:'#1e293b', textColor:'#bae6fd' },
+        artNeon:     { art:true, bg:'#ffffff', shape:'rounded',   mod:['#0891b2','#c026d3'], eye:'#0e7490', logoBg:'#ffffff', textBg:'#0e7490', textColor:'#67e8f9' },
+        artCyberLime:{ art:true, bg:'#f7fee7', shape:'connected', mod:['#4d7c0f','#0e7490'], eye:'#3f6212', logoBg:'#f7fee7', textBg:'#1a2e05', textColor:'#bef264' },
+        artNebula:   { art:true, bg:'#faf5ff', shape:'rounded',   mod:['#7c3aed','#c026d3'], eye:'#4c1d95', logoBg:'#faf5ff', textBg:'#4c1d95', textColor:'#e9d5ff' },
+        artMoltenGold:{art:true, bg:'#fffbeb', shape:'rounded',   mod:['#b45309','#d97706'], eye:'#78350f', logoBg:'#fffbeb', textBg:'#451a03', textColor:'#fcd34d' },
+
+        // --- animal QR (each module is a little critter; decode-verified on jsQR + ZXing) ---
+        artCat:   { art:true, shape:'animal', animal:'cat',   bg:'#fff7ed', mod:['#c2410c','#ea580c'], eye:'#7c2d12', logoBg:'#fff7ed', textBg:'#7c2d12', textColor:'#fed7aa' },
+        artBunny: { art:true, shape:'animal', animal:'bunny', bg:'#fdf2f8', mod:['#be185d','#db2777'], eye:'#831843', logoBg:'#fdf2f8', textBg:'#831843', textColor:'#fbcfe8' },
+        artBear:  { art:true, shape:'animal', animal:'bear',  bg:'#faf5ef', mod:['#78350f','#92400e'], eye:'#451a03', logoBg:'#faf5ef', textBg:'#451a03', textColor:'#fde68a' },
+        artFox:   { art:true, shape:'animal', animal:'fox',   bg:'#fff7ed', mod:['#c2410c','#dc2626'], eye:'#7c2d12', logoBg:'#fff7ed', textBg:'#7c2d12', textColor:'#fed7aa' },
+        artChick: { art:true, shape:'animal', animal:'chick', bg:'#fffbeb', mod:['#a16207','#b45309'], eye:'#78350f', logoBg:'#fffbeb', textBg:'#78350f', textColor:'#fde68a' }
+    };
+
+    // ---------- shared draw helpers ----------
+    function bgBase(spec) { return Array.isArray(spec) ? spec[0] : spec; }
+
+    // Returns a fillStyle (solid color or diagonal linear gradient) for a region.
+    function fillStyleFor(ctx, spec, x, y, w, h) {
+        if (Array.isArray(spec)) {
+            const g = ctx.createLinearGradient(x, y, x + w, y + h);
+            g.addColorStop(0, spec[0]);
+            g.addColorStop(1, spec[1]);
+            return g;
+        }
+        return spec;
+    }
+
+    function roundRectPath(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+    }
+
+    function drawCenterLogo(ctx, w, h, logoImg, backingColor) {
+        const logoSize = Math.min(w, h) * 0.20;
+        const cx = w / 2, cy = h / 2;
+        ctx.save();
+        ctx.fillStyle = backingColor;
+        ctx.beginPath();
+        ctx.arc(cx, cy, (logoSize / 2) + 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(cx, cy, logoSize / 2, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(logoImg, cx - logoSize / 2, cy - logoSize / 2, logoSize, logoSize);
+        ctx.restore();
+    }
+
+    function drawAmountBanner(ctx, fullWidth, qrHeight, bannerHeight, textBg, textColor, amountText) {
+        ctx.fillStyle = textBg;
+        ctx.fillRect(0, qrHeight, fullWidth, bannerHeight);
+        ctx.font = `bold ${Math.floor(bannerHeight * 0.42)}px 'Inter', system-ui, sans-serif`;
+        ctx.fillStyle = textColor;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(amountText.trim(), fullWidth / 2, qrHeight + bannerHeight / 2);
+    }
+
+    // ---------- styled-module ("QR art") renderer ----------
+    // ---------- animal glyphs (for the "animal QR" themes) ----------
+    // Each module = a near-full rounded core (keeps the scanner's centre sample
+    // solid) + small ear/beak nubs kept strictly inside the cell. Timing and
+    // finder-separator modules stay as the plain core so the code decodes
+    // reliably. Verified with jsQR AND ZXing across payload lengths.
+    function animalCore(ctx, x, y, s) {
+        const i = 0.03 * s;
+        roundRectPath(ctx, x + i, y + i, s - 2 * i, s - 2 * i, 0.18 * s);
+        ctx.fill();
+    }
+    function animalFeature(ctx, animal, x, y, s) {
+        ctx.beginPath();
+        if (animal === 'cat') {
+            ctx.moveTo(x + 0.20 * s, y + 0.16 * s); ctx.lineTo(x + 0.31 * s, y); ctx.lineTo(x + 0.44 * s, y + 0.17 * s); ctx.closePath();
+            ctx.moveTo(x + 0.56 * s, y + 0.17 * s); ctx.lineTo(x + 0.69 * s, y); ctx.lineTo(x + 0.80 * s, y + 0.16 * s); ctx.closePath();
+        } else if (animal === 'bunny') {
+            ctx.ellipse(x + 0.40 * s, y + 0.13 * s, 0.065 * s, 0.15 * s, 0, 0, Math.PI * 2);
+            ctx.moveTo(x + 0.665 * s, y + 0.13 * s); ctx.ellipse(x + 0.60 * s, y + 0.13 * s, 0.065 * s, 0.15 * s, 0, 0, Math.PI * 2);
+        } else if (animal === 'bear') {
+            ctx.arc(x + 0.27 * s, y + 0.15 * s, 0.13 * s, 0, Math.PI * 2);
+            ctx.moveTo(x + 0.86 * s, y + 0.15 * s); ctx.arc(x + 0.73 * s, y + 0.15 * s, 0.13 * s, 0, Math.PI * 2);
+        } else if (animal === 'fox') {
+            ctx.moveTo(x + 0.18 * s, y + 0.18 * s); ctx.lineTo(x + 0.26 * s, y); ctx.lineTo(x + 0.44 * s, y + 0.16 * s); ctx.closePath();
+            ctx.moveTo(x + 0.56 * s, y + 0.16 * s); ctx.lineTo(x + 0.74 * s, y); ctx.lineTo(x + 0.82 * s, y + 0.18 * s); ctx.closePath();
+        } else if (animal === 'chick') {
+            ctx.moveTo(x + 0.82 * s, y + 0.44 * s); ctx.lineTo(x + 0.96 * s, y + 0.38 * s); ctx.lineTo(x + 0.96 * s, y + 0.50 * s); ctx.closePath();
+            ctx.arc(x + 0.5 * s, y + 0.11 * s, 0.07 * s, 0, Math.PI * 2);
+        }
+        ctx.fill();
+    }
+
+    function renderArtQr(qr, theme, logoImg, amountText) {
+        const count = qr.getModuleCount();
+        const isAnimal = theme.shape === 'animal';
+        // Animal modules need extra resolution to stay crisp -> enforce a big cell.
+        const cell = isAnimal
+            ? Math.max(15, Math.round(1600 / (count + QR_MARGIN * 2)))
+            : qrCell(count, 900);
+        const dim = (count + QR_MARGIN * 2) * cell;
+        const hasAmount = !!(amountText && amountText.replace(/\D/g, ""));
+        const bannerHeight = hasAmount ? Math.round(dim * 0.11) : 0;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = dim;
+        canvas.height = dim + bannerHeight;
+        const ctx = canvas.getContext('2d');
+
+        // background (QR area only; banner painted after)
+        ctx.fillStyle = fillStyleFor(ctx, theme.bg, 0, 0, dim, dim);
+        ctx.fillRect(0, 0, dim, dim);
+
+        const isDark = (r, c) => r >= 0 && c >= 0 && r < count && c < count && qr.isDark(r, c);
+        const inFinder = (r, c) =>
+            (r < 7 && c < 7) || (r < 7 && c >= count - 7) || (r >= count - 7 && c < 7);
+
+        // modules (finders handled separately as "eyes")
+        ctx.fillStyle = fillStyleFor(ctx, theme.mod, 0, 0, dim, dim);
+        for (let r = 0; r < count; r++) {
+            for (let c = 0; c < count; c++) {
+                if (!isDark(r, c) || inFinder(r, c)) continue;
+                const x = (c + QR_MARGIN) * cell, y = (r + QR_MARGIN) * cell;
+
+                if (theme.shape === 'animal') {
+                    // functional modules (timing + finder separators) stay solid
+                    const solid = (r === 6 || c === 6) ||
+                        (r < 8 && c < 8) || (r < 8 && c >= count - 8) || (r >= count - 8 && c < 8);
+                    animalCore(ctx, x, y, cell);
+                    if (!solid) animalFeature(ctx, theme.animal, x, y, cell);
+                } else if (theme.shape === 'dot') {
+                    ctx.beginPath();
+                    ctx.arc(x + cell / 2, y + cell / 2, cell * 0.5, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (theme.shape === 'rounded') {
+                    roundRectPath(ctx, x, y, cell, cell, cell * 0.3);
+                    ctx.fill();
+                } else if (theme.shape === 'connected') {
+                    // round a corner only when both touching neighbours are empty
+                    const up = isDark(r - 1, c), dn = isDark(r + 1, c),
+                          lf = isDark(r, c - 1), rt = isDark(r, c + 1), R = cell * 0.5;
+                    const tl = (!up && !lf) ? R : 0, tr = (!up && !rt) ? R : 0,
+                          br = (!dn && !rt) ? R : 0, bl = (!dn && !lf) ? R : 0;
+                    ctx.beginPath();
+                    ctx.moveTo(x + tl, y);
+                    ctx.lineTo(x + cell - tr, y); ctx.arcTo(x + cell, y, x + cell, y + tr, tr);
+                    ctx.lineTo(x + cell, y + cell - br); ctx.arcTo(x + cell, y + cell, x + cell - br, y + cell, br);
+                    ctx.lineTo(x + bl, y + cell); ctx.arcTo(x, y + cell, x, y + cell - bl, bl);
+                    ctx.lineTo(x, y + tl); ctx.arcTo(x, y, x + tl, y, tl);
+                    ctx.closePath(); ctx.fill();
+                } else {
+                    ctx.fillRect(x, y, cell, cell);
+                }
+            }
+        }
+
+        // finder "eyes": ring, background gap, pupil. Squarer for animal themes
+        // (rounder finders lower the decode margin on strict scanners).
+        const eyeR = isAnimal ? [0.9, 0.6, 0.4] : [1.75, 1.25, 0.75];
+        const hole = bgBase(theme.bg);
+        const eye = (er, ec) => {
+            const px = (ec + QR_MARGIN) * cell, py = (er + QR_MARGIN) * cell;
+            ctx.fillStyle = theme.eye;   roundRectPath(ctx, px, py, 7 * cell, 7 * cell, cell * eyeR[0]); ctx.fill();
+            ctx.fillStyle = hole;        roundRectPath(ctx, px + cell, py + cell, 5 * cell, 5 * cell, cell * eyeR[1]); ctx.fill();
+            ctx.fillStyle = theme.eye;   roundRectPath(ctx, px + 2 * cell, py + 2 * cell, 3 * cell, 3 * cell, cell * eyeR[2]); ctx.fill();
+        };
+        eye(0, 0); eye(0, count - 7); eye(count - 7, 0);
+
+        if (logoImg) drawCenterLogo(ctx, dim, dim, logoImg, theme.logoBg);
+        if (hasAmount) drawAmountBanner(ctx, dim, dim, bannerHeight, theme.textBg, theme.textColor, amountText);
+
+        return canvas.toDataURL('image/png');
+    }
 
     function hexToRgb(hex) {
         const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
@@ -327,12 +548,19 @@
         // 2) Inject the amount (if any) and refresh the CRC.
         const finalPayload = injectQrisAmount(rawPayload, amountText);
 
-        // 3) Encode a real QR from the (possibly modified) payload.
-        const qrCanvas = makeQrCanvas(finalPayload);
+        // 3) Encode one real QR (full ECC 'H') shared by both render paths.
+        const qr = makeQr(finalPayload);
 
         // 4) Load optional logo.
         const logoImg = logoSource ? await loadImage(logoSource) : null;
 
+        // 5a) QR ART path — styled modules + gradients + custom eyes.
+        if (ART_STYLES[styleOption]) {
+            return renderArtQr(qr, ART_STYLES[styleOption], logoImg, amountText);
+        }
+
+        // 5b) Classic path — recolor a black/white QR, background shows through.
+        const qrCanvas = qrToBWCanvas(qr);
         const config = STYLES[styleOption] || STYLES.defaultWhite;
         const hasAmount = !!(amountText && amountText.replace(/\D/g, ""));
         const bannerHeight = hasAmount ? Math.round(qrCanvas.width * 0.11) : 0;
@@ -374,35 +602,13 @@
         tctx.putImageData(imgData, 0, 0);
         ctx.drawImage(temp, 0, 0);
 
-        // Optional center logo (kept small; ECC 'H' tolerates it)
         if (logoImg) {
-            const logoSize = Math.min(qrCanvas.width, qrCanvas.height) * 0.20;
-            const cx = qrCanvas.width / 2;
-            const cy = qrCanvas.height / 2;
-
-            ctx.save();
-            // solid backing so the logo reads cleanly against QR modules
-            ctx.fillStyle = config.isGrad ? config.bgStops[0] : config.bg;
-            ctx.beginPath();
-            ctx.arc(cx, cy, (logoSize / 2) + 6, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.beginPath();
-            ctx.arc(cx, cy, logoSize / 2, 0, Math.PI * 2);
-            ctx.clip();
-            ctx.drawImage(logoImg, cx - logoSize / 2, cy - logoSize / 2, logoSize, logoSize);
-            ctx.restore();
+            drawCenterLogo(ctx, qrCanvas.width, qrCanvas.height, logoImg,
+                           config.isGrad ? config.bgStops[0] : config.bg);
         }
-
-        // Amount banner
         if (hasAmount) {
-            ctx.fillStyle = config.textBg;
-            ctx.fillRect(0, qrCanvas.height, canvas.width, bannerHeight);
-            ctx.font = `bold ${Math.floor(bannerHeight * 0.42)}px 'Inter', system-ui, sans-serif`;
-            ctx.fillStyle = config.textColor;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(amountText.trim(), canvas.width / 2, qrCanvas.height + bannerHeight / 2);
+            drawAmountBanner(ctx, canvas.width, qrCanvas.height, bannerHeight,
+                             config.textBg, config.textColor, amountText);
         }
 
         return canvas.toDataURL('image/png');
