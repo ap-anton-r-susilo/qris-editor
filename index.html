@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QRIS Studio Pro</title>
+    <!-- Reader: decodes the uploaded QRIS image -->
+    <script src="https://unpkg.com/html5-qrcode" crossorigin="anonymous"></script>
+    <!-- Encoder: real, spec-compliant QR generator (Kazuhiko Arase). Global: qrcode(...) -->
+    <script src="https://unpkg.com/qrcode-generator@1.4.4/qrcode.js" crossorigin="anonymous"></script>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            max-width: 650px;
+            margin: 40px auto;
+            padding: 24px;
+            background-color: #f8fafc;
+            color: #334155;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+            border: 1px solid #e2e8f0;
+        }
+        h2 { margin-top: 0; margin-bottom: 20px; color: #0f172a; font-size: 22px; font-weight: 700; }
+        .input-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 14px; color: #475569; }
+        select, input[type="file"], input[type="text"], button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 4px;
+            box-sizing: border-box;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #1e293b;
+            transition: all 0.2s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+        button {
+            background-color: #2563eb;
+            color: white;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover { background-color: #1d4ed8; }
+        button:disabled { background-color: #94a3b8; cursor: not-allowed; }
+        #downloadBtn {
+            background-color: #059669;
+            display: none;
+        }
+        #downloadBtn:hover { background-color: #047857; }
+        .hint { font-size: 12px; color: #64748b; font-weight: 400; margin-top: 4px; }
+        #statusBar {
+            display: none;
+            margin-top: 16px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .status-error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+        .status-ok { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+        .preview-container { margin-top: 30px; text-align: center; }
+        #outputImage {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05);
+            border: 1px solid #e2e8f0;
+            background: #fff;
+        }
+        optgroup { font-weight: 700; color: #0f172a; background: #f1f5f9; }
+        option { font-weight: normal; color: #334155; background: #ffffff; }
+        footer {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 13px;
+            color: #64748b;
+        }
+        footer .heart { color: #e11d48; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>QRIS Static Enhancer - By AstraPay</h2>
+
+        <div class="input-group">
+            <label for="qrisInput">1. Upload Original QRIS Image</label>
+            <input type="file" id="qrisInput" accept="image/*">
+        </div>
+
+        <div class="input-group">
+            <label for="logoInput">2. Center Logo Picture <span class="hint">(optional)</span></label>
+            <input type="file" id="logoInput" accept="image/*">
+        </div>
+
+        <div class="input-group">
+            <label for="amountInput">3. Transaction Amount <span class="hint">(optional — locks the nominal)</span></label>
+            <input type="text" id="amountInput" inputmode="numeric" placeholder="Rp 0">
+        </div>
+
+        <div class="input-group">
+            <label for="styleSelect">4. Theme Aesthetic</label>
+            <select id="styleSelect">
+                <option value="defaultWhite">⚪ Default Standard (Classic White & Black)</option>
+                <optgroup label="💼 Professional Solids">
+                    <option value="corporateNavy">Corporate Navy (Deep Blue)</option>
+                    <option value="slateMinimal">Slate Minimalist (Clean Charcoal)</option>
+                    <option value="emeraldWealth">Emerald Premium (Banking Green)</option>
+                    <option value="executiveMaroon">Executive Maroon (Crimson & Cream)</option>
+                    <option value="oceanBreeze">Ocean Breeze (Teal Accent)</option>
+                    <option value="sandstone">Sandstone Executive (Warm Taupe)</option>
+                    <option value="midnightJet">High-Contrast Dark (Jet Black)</option>
+                    <option value="royalAmethyst">Royal Plum (Deep Indigo)</option>
+                    <option value="forestReserve">Forest Reserve (Matte Sage)</option>
+                    <option value="warmCopper">Warm Copper (Deep Bronze)</option>
+                </optgroup>
+                <optgroup label="🎨 Professional Gradients">
+                    <option value="gradSapphire">Deep Sapphire Gradient (Midnight to Slate)</option>
+                    <option value="gradPlatinum">Steel Platinum Gradient (Silver Corporate Matrix)</option>
+                    <option value="gradAlpine">Alpine Mist Gradient (Deep Forest to Sage)</option>
+                    <option value="gradBordeaux">Bordeaux Blend Gradient (Luxury Wine Accent)</option>
+                    <option value="gradPacific">Pacific Dusk Gradient (Navy into Charcoal)</option>
+                    <option value="gradChampagne">Champagne Gold Gradient (Earthy Metallic Sheen)</option>
+                    <option value="gradVerdant">Verdant Growth Gradient (Teal to Mint)</option>
+                    <option value="gradImperial">Imperial Velvet Gradient (Rich Violet to Dark Plum)</option>
+                    <option value="gradTerracotta">Terracotta Clay Gradient (Rust to Autumn Charcoal)</option>
+                    <option value="gradTitanium">Titanium Obsidian Gradient (Deep Carbon Textures)</option>
+                </optgroup>
+            </select>
+        </div>
+
+        <button id="generateBtn">Generate QRIS</button>
+        <a id="downloadLink"><button id="downloadBtn">Download Final Image</button></a>
+
+        <div id="statusBar"></div>
+        <div id="hiddenQrContainer" style="display:none;"></div>
+
+        <div class="preview-container">
+            <img id="outputImage"
+                 src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'><text y='54' x='50' font-family='sans-serif' font-size='5' text-anchor='middle' fill='%23999'>Preview panel ready</text></svg>"
+                 alt="Preview"/>
+        </div>
+    </div>
+
+    <footer>
+        Dibuat dengan <span class="heart">♡</span> oleh Tim Produk AstraPay. 2026
+    </footer>
+
+    <script>
+    /* ================================================================
+       QRIS Studio Pro
+       Flow:  read QRIS image  ->  (optional) inject amount into payload
+              ->  encode a REAL QR  ->  recolor + logo + amount banner
+       ================================================================ */
+
+    // ---------- UI helpers ----------
+    const $ = (id) => document.getElementById(id);
+    function showStatus(msg, kind) {
+        const bar = $('statusBar');
+        bar.textContent = msg;
+        bar.className = kind === 'error' ? 'status-error' : 'status-ok';
+        bar.style.display = 'block';
+    }
+    function clearStatus() { $('statusBar').style.display = 'none'; }
+
+    // Currency mask: keep only digits, show "Rp 1.234.567"
+    $('amountInput').addEventListener('input', function (e) {
+        const val = e.target.value.replace(/\D/g, "");
+        if (!val) { e.target.value = ""; return; }
+        e.target.value = "Rp " + val.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    });
+
+    // ---------- EMVCo CRC-16/CCITT-FALSE (poly 0x1021, init 0xFFFF) ----------
+    function getCRC16(str) {
+        let crc = 0xFFFF;
+        for (let c = 0; c < str.length; c++) {
+            crc ^= str.charCodeAt(c) << 8;
+            for (let i = 0; i < 8; i++) {
+                crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+            }
+        }
+        return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+    }
+
+    // ---------- EMVCo TLV (Tag-Length-Value) parse / build ----------
+    function parseTLV(str) {
+        const out = [];
+        let i = 0;
+        while (i + 4 <= str.length) {
+            const tag = str.substr(i, 2);
+            const len = parseInt(str.substr(i + 2, 2), 10);
+            if (isNaN(len) || i + 4 + len > str.length) break;
+            out.push({ tag, value: str.substr(i + 4, len) });
+            i += 4 + len;
+        }
+        return out;
+    }
+    function buildTLV(items) {
+        return items.map(o => o.tag + String(o.value.length).padStart(2, '0') + o.value).join('');
+    }
+
+    /**
+     * Insert/replace the transaction amount (tag 54) on a QRIS payload,
+     * then recompute the CRC (tag 63). Robust TLV editing — no fragile
+     * string matching. If amount is empty/0, any existing 54 is removed.
+     */
+    function injectQrisAmount(rawString, amountDigits) {
+        const items = parseTLV(rawString);
+        if (items.length === 0) return rawString; // not a TLV payload, leave untouched
+
+        // Drop existing amount (54) and CRC (63); we rebuild both.
+        const filtered = items.filter(o => o.tag !== '54' && o.tag !== '63');
+
+        const clean = (amountDigits || '').replace(/\D/g, '');
+        if (clean && parseInt(clean, 10) > 0) {
+            // Keep ascending tag order: insert 54 before the first tag > 54.
+            let idx = filtered.findIndex(o => parseInt(o.tag, 10) > 54);
+            if (idx === -1) idx = filtered.length;
+            filtered.splice(idx, 0, { tag: '54', value: clean });
+        }
+
+        const core = buildTLV(filtered) + '6304'; // CRC tag+length are part of CRC input
+        return core + getCRC16(core);
+    }
+
+    // ---------- Real QR encoder -> crisp black/white canvas with quiet zone ----------
+    function makeQrCanvas(text) {
+        // ECC level 'H' (30% recovery) so the center logo doesn't break scanning.
+        const qr = qrcode(0, 'H');   // 0 = auto-select the smallest fitting version
+        qr.addData(text);
+        qr.make();
+
+        const count = qr.getModuleCount();
+        const margin = 4;                       // required quiet zone (in modules)
+        const cell = Math.max(4, Math.round(800 / (count + margin * 2)));
+        const dim = (count + margin * 2) * cell;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = dim;
+        canvas.height = dim;
+        const ctx = canvas.getContext('2d');
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, dim, dim);
+        ctx.fillStyle = '#000000';
+        for (let r = 0; r < count; r++) {
+            for (let c = 0; c < count; c++) {
+                if (qr.isDark(r, c)) {
+                    ctx.fillRect((c + margin) * cell, (r + margin) * cell, cell, cell);
+                }
+            }
+        }
+        return canvas;
+    }
+
+    // ---------- Theme palette ----------
+    const STYLES = {
+        defaultWhite:   { isGrad:false, bg:'#ffffff', qrDark:'#000000', textBg:'#1e293b', textColor:'#ffffff' },
+        corporateNavy:  { isGrad:false, bg:'#f1f5f9', qrDark:'#0f172a', textBg:'#0f172a', textColor:'#38bdf8' },
+        slateMinimal:   { isGrad:false, bg:'#f8fafc', qrDark:'#334155', textBg:'#334155', textColor:'#f8fafc' },
+        emeraldWealth:  { isGrad:false, bg:'#f0fdf4', qrDark:'#064e3b', textBg:'#064e3b', textColor:'#34d399' },
+        executiveMaroon:{ isGrad:false, bg:'#fffbeb', qrDark:'#450a0a', textBg:'#450a0a', textColor:'#fef3c7' },
+        oceanBreeze:    { isGrad:false, bg:'#f0f9ff', qrDark:'#0369a1', textBg:'#0369a1', textColor:'#e0f2fe' },
+        sandstone:      { isGrad:false, bg:'#fafaf9', qrDark:'#44403c', textBg:'#44403c', textColor:'#f5f5f4' },
+        midnightJet:    { isGrad:false, bg:'#ffffff', qrDark:'#111111', textBg:'#111111', textColor:'#ffffff' },
+        royalAmethyst:  { isGrad:false, bg:'#faf5ff', qrDark:'#3b0764', textBg:'#3b0764', textColor:'#f3e8ff' },
+        forestReserve:  { isGrad:false, bg:'#f7fee7', qrDark:'#14532d', textBg:'#14532d', textColor:'#d9f99d' },
+        warmCopper:     { isGrad:false, bg:'#fdfaf7', qrDark:'#431407', textBg:'#431407', textColor:'#ffedd5' },
+
+        gradSapphire:   { isGrad:true, bgStops:['#0f172a','#1e3a8a'], qrDark:'#ffffff', textBg:'#0f172a', textColor:'#38bdf8' },
+        gradPlatinum:   { isGrad:true, bgStops:['#e2e8f0','#94a3b8'], qrDark:'#0f172a', textBg:'#0f172a', textColor:'#f8fafc' },
+        gradAlpine:     { isGrad:true, bgStops:['#14532d','#2f4f4f'], qrDark:'#f7fee7', textBg:'#112211', textColor:'#a7f3d0' },
+        gradBordeaux:   { isGrad:true, bgStops:['#31111d','#581c32'], qrDark:'#fdf2f8', textBg:'#1c0510', textColor:'#fbcfe8' },
+        gradPacific:    { isGrad:true, bgStops:['#042f44','#134e5e'], qrDark:'#e0f2fe', textBg:'#021f2d', textColor:'#7dd3fc' },
+        gradChampagne:  { isGrad:true, bgStops:['#d6c5b3','#a3907c'], qrDark:'#1e1b18', textBg:'#1e1b18', textColor:'#f5f5f4' },
+        gradVerdant:    { isGrad:true, bgStops:['#022c22','#065f46'], qrDark:'#ccfbf1', textBg:'#021b15', textColor:'#2dd4bf' },
+        gradImperial:   { isGrad:true, bgStops:['#2e1065','#4c1d95'], qrDark:'#fae8ff', textBg:'#1e0b3b', textColor:'#e9d5ff' },
+        gradTerracotta: { isGrad:true, bgStops:['#451a03','#7c2d12'], qrDark:'#ffedd5', textBg:'#2c1001', textColor:'#fed7aa' },
+        gradTitanium:   { isGrad:true, bgStops:['#171717','#262626'], qrDark:'#f5f5f5', textBg:'#0a0a0a', textColor:'#e5e5e5' }
+    };
+
+    function hexToRgb(hex) {
+        const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return m ? { r:parseInt(m[1],16), g:parseInt(m[2],16), b:parseInt(m[3],16) } : { r:0,g:0,b:0 };
+    }
+    function loadImage(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error("Could not read the logo image. Try a standard PNG or JPG."));
+            img.src = src;
+        });
+    }
+    function readAsDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // ---------- Main pipeline ----------
+    async function buildStyledQris(qrisFile, logoSource, styleOption, amountText) {
+        // 1) Decode the uploaded QRIS to its raw payload string.
+        const scanner = new Html5Qrcode("hiddenQrContainer");
+        let rawPayload;
+        try {
+            rawPayload = await scanner.scanFile(qrisFile, false);
+        } catch (e) {
+            throw new Error("Couldn't read the QRIS from that image. Use a clear, uncropped QR photo.");
+        } finally {
+            try { await scanner.clear(); } catch (_) {}
+        }
+
+        // 2) Inject the amount (if any) and refresh the CRC.
+        const finalPayload = injectQrisAmount(rawPayload, amountText);
+
+        // 3) Encode a real QR from the (possibly modified) payload.
+        const qrCanvas = makeQrCanvas(finalPayload);
+
+        // 4) Load optional logo.
+        const logoImg = logoSource ? await loadImage(logoSource) : null;
+
+        const config = STYLES[styleOption] || STYLES.defaultWhite;
+        const hasAmount = !!(amountText && amountText.replace(/\D/g, ""));
+        const bannerHeight = hasAmount ? Math.round(qrCanvas.width * 0.11) : 0;
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = qrCanvas.width;
+        canvas.height = qrCanvas.height + bannerHeight;
+
+        // Background
+        if (config.isGrad) {
+            const g = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            g.addColorStop(0, config.bgStops[0]);
+            g.addColorStop(1, config.bgStops[1]);
+            ctx.fillStyle = g;
+        } else {
+            ctx.fillStyle = config.bg;
+        }
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Recolor QR: dark modules -> theme color, light -> transparent (background shows through)
+        const temp = document.createElement('canvas');
+        const tctx = temp.getContext('2d');
+        temp.width = qrCanvas.width;
+        temp.height = qrCanvas.height;
+        tctx.drawImage(qrCanvas, 0, 0);
+
+        const imgData = tctx.getImageData(0, 0, temp.width, temp.height);
+        const px = imgData.data;
+        const dark = hexToRgb(config.qrDark);
+        for (let i = 0; i < px.length; i += 4) {
+            const brightness = 0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2];
+            if (brightness < 128) {
+                px[i] = dark.r; px[i + 1] = dark.g; px[i + 2] = dark.b; px[i + 3] = 255;
+            } else {
+                px[i + 3] = 0; // transparent
+            }
+        }
+        tctx.putImageData(imgData, 0, 0);
+        ctx.drawImage(temp, 0, 0);
+
+        // Optional center logo (kept small; ECC 'H' tolerates it)
+        if (logoImg) {
+            const logoSize = Math.min(qrCanvas.width, qrCanvas.height) * 0.20;
+            const cx = qrCanvas.width / 2;
+            const cy = qrCanvas.height / 2;
+
+            ctx.save();
+            // solid backing so the logo reads cleanly against QR modules
+            ctx.fillStyle = config.isGrad ? config.bgStops[0] : config.bg;
+            ctx.beginPath();
+            ctx.arc(cx, cy, (logoSize / 2) + 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(cx, cy, logoSize / 2, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.drawImage(logoImg, cx - logoSize / 2, cy - logoSize / 2, logoSize, logoSize);
+            ctx.restore();
+        }
+
+        // Amount banner
+        if (hasAmount) {
+            ctx.fillStyle = config.textBg;
+            ctx.fillRect(0, qrCanvas.height, canvas.width, bannerHeight);
+            ctx.font = `bold ${Math.floor(bannerHeight * 0.42)}px 'Inter', system-ui, sans-serif`;
+            ctx.fillStyle = config.textColor;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(amountText.trim(), canvas.width / 2, qrCanvas.height + bannerHeight / 2);
+        }
+
+        return canvas.toDataURL('image/png');
+    }
+
+    // ---------- Wire up the button ----------
+    $('generateBtn').addEventListener('click', async () => {
+        clearStatus();
+        const qrisFile = $('qrisInput').files[0];
+        const logoFile = $('logoInput').files[0];
+        const style = $('styleSelect').value;
+        const amount = $('amountInput').value.trim();
+
+        if (!qrisFile) { showStatus("Please upload the original QRIS image first.", 'error'); return; }
+        if (typeof qrcode === 'undefined' || typeof Html5Qrcode === 'undefined') {
+            showStatus("Libraries didn't load. Check your internet connection (or self-host the two scripts).", 'error');
+            return;
+        }
+
+        const btn = $('generateBtn');
+        btn.disabled = true;
+        btn.textContent = "Processing…";
+
+        try {
+            const logoDataUrl = logoFile ? await readAsDataURL(logoFile) : null;
+            const resultUrl = await buildStyledQris(qrisFile, logoDataUrl, style, amount);
+
+            $('outputImage').src = resultUrl;
+            const link = $('downloadLink');
+            link.href = resultUrl;
+            link.download = `QRIS_${style}${amount ? '_' + amount.replace(/\D/g, '') : ''}.png`;
+            $('downloadBtn').style.display = 'block';
+            showStatus("Done. Scan-test it with a banking/e-wallet app before sharing.", 'ok');
+        } catch (err) {
+            console.error(err);
+            showStatus(err.message || "Something went wrong.", 'error');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = "Generate QRIS";
+        }
+    });
+    </script>
+</body>
+</html>
