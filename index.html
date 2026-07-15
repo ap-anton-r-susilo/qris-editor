@@ -399,35 +399,36 @@
     }
 
     // ---------- styled-module ("QR art") renderer ----------
-    // ---------- animal glyphs (for the "animal QR" themes) ----------
-    // Each module = a near-full rounded core (keeps the scanner's centre sample
-    // solid) + small ear/beak nubs kept strictly inside the cell. Timing and
-    // finder-separator modules stay as the plain core so the code decodes
-    // reliably. Verified with jsQR AND ZXing across payload lengths.
-    function animalCore(ctx, x, y, s) {
-        const i = 0.03 * s;
-        roundRectPath(ctx, x + i, y + i, s - 2 * i, s - 2 * i, 0.18 * s);
-        ctx.fill();
-    }
-    function animalFeature(ctx, animal, x, y, s) {
-        ctx.beginPath();
-        if (animal === 'cat') {
-            ctx.moveTo(x + 0.20 * s, y + 0.16 * s); ctx.lineTo(x + 0.31 * s, y); ctx.lineTo(x + 0.44 * s, y + 0.17 * s); ctx.closePath();
-            ctx.moveTo(x + 0.56 * s, y + 0.17 * s); ctx.lineTo(x + 0.69 * s, y); ctx.lineTo(x + 0.80 * s, y + 0.16 * s); ctx.closePath();
-        } else if (animal === 'bunny') {
-            ctx.ellipse(x + 0.40 * s, y + 0.13 * s, 0.065 * s, 0.15 * s, 0, 0, Math.PI * 2);
-            ctx.moveTo(x + 0.665 * s, y + 0.13 * s); ctx.ellipse(x + 0.60 * s, y + 0.13 * s, 0.065 * s, 0.15 * s, 0, 0, Math.PI * 2);
-        } else if (animal === 'bear') {
-            ctx.arc(x + 0.27 * s, y + 0.15 * s, 0.13 * s, 0, Math.PI * 2);
-            ctx.moveTo(x + 0.86 * s, y + 0.15 * s); ctx.arc(x + 0.73 * s, y + 0.15 * s, 0.13 * s, 0, Math.PI * 2);
-        } else if (animal === 'fox') {
-            ctx.moveTo(x + 0.18 * s, y + 0.18 * s); ctx.lineTo(x + 0.26 * s, y); ctx.lineTo(x + 0.44 * s, y + 0.16 * s); ctx.closePath();
-            ctx.moveTo(x + 0.56 * s, y + 0.16 * s); ctx.lineTo(x + 0.74 * s, y); ctx.lineTo(x + 0.82 * s, y + 0.18 * s); ctx.closePath();
-        } else if (animal === 'chick') {
-            ctx.moveTo(x + 0.82 * s, y + 0.44 * s); ctx.lineTo(x + 0.96 * s, y + 0.38 * s); ctx.lineTo(x + 0.96 * s, y + 0.50 * s); ctx.closePath();
-            ctx.arc(x + 0.5 * s, y + 0.11 * s, 0.07 * s, 0, Math.PI * 2);
+    // ---------- animal SILHOUETTE renderer ----------
+    // The QR modules themselves form the animal: modules inside the silhouette
+    // are dark, outside are light. Each module's TRUE value is then stamped as a
+    // centre dot (scanners sample module centres), so the data survives while the
+    // overall pattern reads as the animal. Finder / timing / alignment patterns
+    // are kept exact. Verified on jsQR AND ZXing across payload lengths.
+    const QR_ALIGN = { 2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],7:[6,22,38],8:[6,24,42],9:[6,26,46],10:[6,28,50],11:[6,30,54],12:[6,32,58],13:[6,34,62],14:[6,26,46,66],15:[6,26,48,70],16:[6,26,50,74],17:[6,30,54,78],18:[6,30,56,82],19:[6,30,58,86],20:[6,34,62,90],21:[6,28,50,72,94],22:[6,26,50,74,98],23:[6,30,54,78,102],24:[6,28,54,80,106],25:[6,32,58,84,110],26:[6,30,58,86,114],27:[6,34,62,90,118],28:[6,26,50,74,98,122],29:[6,30,54,78,102,126],30:[6,26,52,78,104,130] };
+    function alignCenters(count) {
+        const v = (count - 17) / 4, p = QR_ALIGN[v] || [], out = [];
+        for (const R of p) for (const C of p) {
+            if ((R <= 8 && C <= 8) || (R <= 8 && C >= count - 9) || (R >= count - 9 && C <= 8)) continue;
+            out.push([R, C]);
         }
-        ctx.fill();
+        return out;
+    }
+    // silhouette test in normalised [0,1]^2 (origin top-left); true = inside (dark)
+    function animalSilhouette(a, u, v) {
+        const C = (cx, cy, r) => ((u - cx) ** 2 + (v - cy) ** 2 <= r * r);
+        const T = (ax, ay, bx, by, cx, cy) => {
+            const d = (x1,y1,x2,y2,x3,y3) => (x1-x3)*(y2-y3)-(x2-x3)*(y1-y3);
+            const a1=d(u,v,ax,ay,bx,by), a2=d(u,v,bx,by,cx,cy), a3=d(u,v,cx,cy,ax,ay);
+            return !(((a1<0)||(a2<0)||(a3<0)) && ((a1>0)||(a2>0)||(a3>0)));
+        };
+        const E = (cx, cy, rx, ry) => (((u-cx)/rx)**2 + ((v-cy)/ry)**2 <= 1);
+        if (a === 'cat')   return C(0.5,0.56,0.34) || T(0.18,0.42,0.26,0.12,0.42,0.40) || T(0.82,0.42,0.74,0.12,0.58,0.40);
+        if (a === 'bunny') return C(0.5,0.62,0.30) || E(0.38,0.28,0.08,0.22) || E(0.62,0.28,0.08,0.22);
+        if (a === 'bear')  return C(0.5,0.57,0.33) || C(0.24,0.30,0.14) || C(0.76,0.30,0.14);
+        if (a === 'fox')   return C(0.5,0.55,0.30) || T(0.14,0.40,0.20,0.08,0.44,0.36) || T(0.86,0.40,0.80,0.08,0.56,0.36) || T(0.30,0.66,0.70,0.66,0.5,0.96);
+        if (a === 'chick') return C(0.5,0.54,0.36) || T(0.42,0.20,0.5,0.06,0.58,0.20);
+        return false;
     }
 
     function renderArtQr(qr, theme, logoImg, amountText) {
@@ -455,19 +456,38 @@
             (r < 7 && c < 7) || (r < 7 && c >= count - 7) || (r >= count - 7 && c < 7);
 
         // modules (finders handled separately as "eyes")
-        ctx.fillStyle = fillStyleFor(ctx, theme.mod, 0, 0, dim, dim);
+        const modFill = fillStyleFor(ctx, theme.mod, 0, 0, dim, dim);
+        ctx.fillStyle = modFill;
+        if (theme.shape === 'animal') {
+            // The blocks themselves form the animal silhouette.
+            const aligns = alignCenters(count);
+            const inAlign = (r, c) => aligns.some(([R, C]) => Math.abs(r - R) <= 2 && Math.abs(c - C) <= 2);
+            const cleanArea = (r, c) => (r === 6 || c === 6) ||
+                (r < 8 && c < 8) || (r < 8 && c >= count - 8) || (r >= count - 8 && c < 8) || inAlign(r, c);
+            const bg0 = bgBase(theme.bg);
+            for (let r = 0; r < count; r++) {
+                for (let c = 0; c < count; c++) {
+                    if (inFinder(r, c)) continue;              // drawn as "eyes"
+                    const x = (c + QR_MARGIN) * cell, y = (r + QR_MARGIN) * cell, V = isDark(r, c);
+                    if (cleanArea(r, c)) {                      // keep functional patterns exact
+                        if (V) { ctx.fillStyle = modFill; roundRectPath(ctx, x, y, cell, cell, cell * 0.12); ctx.fill(); }
+                        continue;
+                    }
+                    if (animalSilhouette(theme.animal, (c + 0.5) / count, (r + 0.5) / count)) {
+                        ctx.fillStyle = modFill; roundRectPath(ctx, x, y, cell, cell, cell * 0.12); ctx.fill();
+                    }
+                    // stamp the module's TRUE value as a centre dot so it still scans
+                    ctx.fillStyle = V ? modFill : bg0;
+                    ctx.beginPath(); ctx.arc(x + cell / 2, y + cell / 2, cell * 0.35, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+        } else {
         for (let r = 0; r < count; r++) {
             for (let c = 0; c < count; c++) {
                 if (!isDark(r, c) || inFinder(r, c)) continue;
                 const x = (c + QR_MARGIN) * cell, y = (r + QR_MARGIN) * cell;
 
-                if (theme.shape === 'animal') {
-                    // functional modules (timing + finder separators) stay solid
-                    const solid = (r === 6 || c === 6) ||
-                        (r < 8 && c < 8) || (r < 8 && c >= count - 8) || (r >= count - 8 && c < 8);
-                    animalCore(ctx, x, y, cell);
-                    if (!solid) animalFeature(ctx, theme.animal, x, y, cell);
-                } else if (theme.shape === 'dot') {
+                if (theme.shape === 'dot') {
                     ctx.beginPath();
                     ctx.arc(x + cell / 2, y + cell / 2, cell * 0.5, 0, Math.PI * 2);
                     ctx.fill();
@@ -491,6 +511,7 @@
                     ctx.fillRect(x, y, cell, cell);
                 }
             }
+        }
         }
 
         // finder "eyes": ring, background gap, pupil. Squarer for animal themes
